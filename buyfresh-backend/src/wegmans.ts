@@ -180,6 +180,7 @@ export class WegmansStore implements GroceryStore {
 			push_token: '',
 			screen_height: 1080,
 			screen_width: 1920,
+			wfmStoreId: 115,
 		};
 
 		const sessionResponse = await fetch(`${WEGMANS_BASE_URL}/api/v2/user_sessions`, {
@@ -206,6 +207,20 @@ export class WegmansStore implements GroceryStore {
 
 		const cookies = userResponse.headers.get('set-cookie');
 		if (!cookies) throw new Error('Failed to get cookies');
+
+		// TODO: Allow store selection. You can do unauthed request to https://shop.wegmans.com/api/v2/stores. Save cookies per store
+		// Update the user chosen store
+		const user = await fetch('https://shop.wegmans.com/api/v2/user', {
+			headers: {
+				'Content-Type': 'application/json',
+				'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+				cookie: cookies,
+			},
+			body: JSON.stringify({ store_id: 115, has_changed_store: true }),
+			method: 'PATCH',
+		});
+		const r = await user.json();
+		console.log(r);
 
 		const sessionCookie = cookies.split(';').find((cookie) => cookie.trim().startsWith('session-prd-weg='));
 		if (!sessionCookie) throw new Error('Failed to get session cookie');
@@ -236,14 +251,18 @@ export class WegmansStore implements GroceryStore {
 
 			const data = (await response.json()) as Welcome;
 
-			return data.items.map((item) => ({
-				aisle: item.aisle,
-				href: item.href,
-				image: item.images.tile.large,
-				name: item.name,
-				price: item.base_price,
-				size: item.size_string,
-			}));
+			return data.items.map((item) => {
+				const groceryItem: GroceryItem = {
+					aisle: item.aisle,
+					href: 'https://shop.wegmans.com/product/' + item.id,
+					store: 'wegmans',
+					image: item.images.tile.large,
+					name: item.name,
+					price: item.base_price,
+					size: item.size_string,
+				};
+				return groceryItem;
+			});
 		} catch (error) {
 			if (retries > 0) {
 				this.cookie = null; // Reset cookie on failure

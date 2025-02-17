@@ -1,6 +1,7 @@
 export interface GroceryItem {
 	aisle: string;
 	href: string;
+	store: 'wegmans';
 	image: string;
 	name: string;
 	price: number;
