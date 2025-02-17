@@ -32,6 +32,7 @@ async function handleSearch(request: Request, env: Env): Promise<Response> {
 		headers: {
 			'Content-Type': 'application/json',
 			'Access-Control-Allow-Origin': '*',
+			'Cache-Control': 'public, max-age=3000', // Cache for 5 minutes
 		},
 	});
 }

@@ -157,6 +157,7 @@ interface SessionResponse {
 
 export class WegmansStore implements GroceryStore {
 	private cookie: string | null = null;
+	private useKVCookie = true;
 
 	constructor(private readonly kv: KVNamespace) {}
 
@@ -171,7 +172,7 @@ export class WegmansStore implements GroceryStore {
 
 		// Try to get cached cookie from KV
 		const cachedCookie = await this.kv.get('wegmans_cookie');
-		if (cachedCookie) {
+		if (cachedCookie && this.useKVCookie) {
 			this.cookie = cachedCookie;
 			return cachedCookie;
 		}
@@ -267,8 +268,11 @@ export class WegmansStore implements GroceryStore {
 				return groceryItem;
 			});
 		} catch (error) {
+			console.error(error);
 			if (retries > 0) {
+				console.log('retrying');
 				this.cookie = null; // Reset cookie on failure
+				this.useKVCookie = false;
 				return this.searchWithRetry(query, retries - 1);
 			}
 			throw error;
