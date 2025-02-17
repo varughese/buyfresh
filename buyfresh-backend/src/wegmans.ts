@@ -160,7 +160,13 @@ export class WegmansStore implements GroceryStore {
 
 	constructor(private readonly kv: KVNamespace) {}
 
-	private async getCookie(): Promise<string> {
+	private async getCookie(store: string): Promise<string> {
+		// TODO: Add store selection to interface.
+		// You can do unauthed request to https://shop.wegmans.com/api/v2/stores. Save cookies per store
+		const stores = {
+			'Astor Pl': 115,
+		} as Record<string, number>;
+
 		if (this.cookie) return this.cookie;
 
 		// Try to get cached cookie from KV
@@ -180,7 +186,6 @@ export class WegmansStore implements GroceryStore {
 			push_token: '',
 			screen_height: 1080,
 			screen_width: 1920,
-			wfmStoreId: 115,
 		};
 
 		const sessionResponse = await fetch(`${WEGMANS_BASE_URL}/api/v2/user_sessions`, {
@@ -208,19 +213,17 @@ export class WegmansStore implements GroceryStore {
 		const cookies = userResponse.headers.get('set-cookie');
 		if (!cookies) throw new Error('Failed to get cookies');
 
-		// TODO: Allow store selection. You can do unauthed request to https://shop.wegmans.com/api/v2/stores. Save cookies per store
-		// Update the user chosen store
-		const user = await fetch('https://shop.wegmans.com/api/v2/user', {
+		// This PATCH request will update the cookie to change the cookie for a given store
+		const storeId = stores[store] || 115;
+		await fetch('https://shop.wegmans.com/api/v2/user', {
 			headers: {
 				'Content-Type': 'application/json',
 				'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
 				cookie: cookies,
 			},
-			body: JSON.stringify({ store_id: 115, has_changed_store: true }),
+			body: JSON.stringify({ store_id: storeId, has_changed_store: true }),
 			method: 'PATCH',
 		});
-		const r = await user.json();
-		console.log(r);
 
 		const sessionCookie = cookies.split(';').find((cookie) => cookie.trim().startsWith('session-prd-weg='));
 		if (!sessionCookie) throw new Error('Failed to get session cookie');
@@ -239,7 +242,7 @@ export class WegmansStore implements GroceryStore {
 		const searchURL = `${WEGMANS_BASE_URL}/api/v2/store_products?fulfillment_type=pickup&ads_enabled=false&ads_pagination_improvements=true&limit=10&offset=0&page=1&prophetScorer=frecency&sort=rank&allow_autocorrect=true&search_is_autocomplete=true&search_provider=ic&search_term=${query}%20organic&secondary_results=true&unified_search_shadow_test_enabled=false`;
 
 		try {
-			const cookie = await this.getCookie();
+			const cookie = await this.getCookie('Astor Pl');
 			const response = await fetch(searchURL, {
 				headers: {
 					'User-Agent':
