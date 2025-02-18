@@ -59,7 +59,7 @@ function parseFormatOne(lines: string[]) {
         const match = line.match(/(.*?)\((.*?)\)/);
         if (!match) return { ingredient: line.trim(), amount: null };
 
-        const [_, ingredient, details] = match;
+        const [, ingredient, details] = match;
         // Extract amount from details, keeping the full unit
         const amountMatch = details.match(
             new RegExp(`^${AMOUNT_PATTERN}`, "i")
@@ -68,7 +68,7 @@ function parseFormatOne(lines: string[]) {
         if (!amountMatch)
             return { ingredient: ingredient.trim(), amount: null };
 
-        const [fullMatch, number, unit] = amountMatch;
+        const [, number, unit] = amountMatch;
         if (!number && !unit)
             return { ingredient: ingredient.trim(), amount: null };
 
