@@ -22,7 +22,7 @@ export function recipeMultiplier(
         const unit2Match = ingredient2.match(unitRegex);
         const unit2 = unit2Match ? unit2Match[0].trim().toLowerCase() : null;
 
-        if (!value1 || value2 || !unit1 || !unit2) {
+        if (!value1 || !value2 || !unit1 || !unit2) {
             return null;
         }
 
@@ -48,8 +48,10 @@ export function recipeMultiplier(
 
         // Convert first ingredient to second ingredient's unit
         const convertedValue = convert(value1)
-            .from(mappedUnit1)
-            .to(mappedUnit2);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .from(mappedUnit1 as any)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .to(mappedUnit2 as any);
 
         // Calculate multiplier
         const multiplier = value2 / convertedValue;
@@ -65,7 +67,8 @@ export function recipeMultiplier(
     } catch (error) {
         return {
             error: "Invalid units or conversion not possible",
-            details: error.message,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            details: (error as any).message,
         };
     }
 }
