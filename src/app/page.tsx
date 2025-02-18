@@ -2,6 +2,8 @@
 "use client";
 
 import { useState } from "react";
+import { Ingredient, parseRecipe } from "./ingredient-parser";
+import { recipeMultiplier } from "./converter";
 
 interface GroceryItem {
     aisle: string;
@@ -16,36 +18,48 @@ interface GroceryItem {
 const GrocerySearch: React.FC = () => {
     const [queries, setQueries] = useState<string>(DEFAULT_QUERY);
     const [items, setItems] = useState<{ [key: string]: GroceryItem[] }>({});
-    const [selectedItems, setSelectedItems] = useState<GroceryItem[]>([]);
+    const [selectedItems, setSelectedItems] = useState<
+        {
+            item: GroceryItem;
+            ingredient: Ingredient;
+        }[]
+    >([]);
     const [skippedQueries, setSkippedQueries] = useState<Set<string>>(
         new Set()
     );
+    const [ingredients, setIngredients] = useState<Ingredient[]>([]);
 
     const searchGroceries = async () => {
         setItems({});
-        const queryList = queries
-            .split("\n")
-            .map((q) => q.trim())
-            .filter(Boolean);
+        const queryList = parseRecipe(queries);
+        setIngredients(queryList);
+
         const results: { [key: string]: GroceryItem[] } = {};
 
         await Promise.all(
-            queryList.map(async (query) => {
+            queryList.map(async (parsedIngredient) => {
+                const ingredient = parsedIngredient.ingredient;
                 const response = await fetch(
-                    `https://buyfresh-backend.matvarughese3.workers.dev/search?q=${query}`
+                    `https://buyfresh-backend.matvarughese3.workers.dev/search?q=${ingredient}`
                 );
                 const data: GroceryItem[] = await response.json();
-                results[query] = data.slice(0, 4);
+                results[ingredient] = data.slice(0, 4);
                 setItems((prevItems) => ({
                     ...prevItems,
-                    [query]: results[query],
+                    [ingredient]: results[ingredient],
                 }));
             })
         );
     };
 
-    const chooseItem = (item: GroceryItem) => {
-        setSelectedItems((prev) => [...prev, item]);
+    const chooseItem = (item: GroceryItem, ingredient: Ingredient) => {
+        setSelectedItems((prev) => [...prev, { item, ingredient }]);
+    };
+
+    const unchooseItem = (item: GroceryItem) => {
+        setSelectedItems((prev) =>
+            prev.filter((i) => i.item.href !== item.href)
+        );
     };
 
     const skipQuery = (query: string) => {
@@ -53,10 +67,27 @@ const GrocerySearch: React.FC = () => {
     };
 
     const isItemSelected = (item: GroceryItem) => {
-        return selectedItems.some((selected) => selected.href === item.href);
+        return selectedItems
+            .map((i) => i.item)
+            .some((selected) => selected.href === item.href);
     };
 
-    const totalPrice = selectedItems.reduce((sum, item) => sum + item.price, 0);
+    const totalPrice = selectedItems
+        .map((i) => i.item)
+        .reduce((sum, item) => sum + item.price, 0);
+
+    const calculateIngredientMultiplier = (
+        item: GroceryItem,
+        ingredient: Ingredient
+    ) => {
+        const conversion = recipeMultiplier(item.size, ingredient.amount);
+
+        if (!conversion || conversion.error) {
+            return null;
+        }
+
+        return conversion.conversion;
+    };
 
     return (
         <div>
@@ -65,7 +96,7 @@ const GrocerySearch: React.FC = () => {
                     Bulk search Astor Pl Wegmans for ingredients
                 </h3>
             </div>
-            <div className="flex gap-8">
+            <div className="flex gap-8 flex-col md:flex-row">
                 <div className="flex-grow flex flex-col gap-4">
                     {/* Input for multiple items */}
                     <textarea
@@ -83,74 +114,103 @@ const GrocerySearch: React.FC = () => {
                     </button>
 
                     {/* Display search results */}
-                    {Object.entries(items)
-                        .sort((a, b) => {
-                            const queryList = queries
-                                .split("\n")
-                                .map((q) => q.trim())
-                                .filter(Boolean);
-
-                            return (
-                                queryList.indexOf(a[0]) -
-                                queryList.indexOf(b[0])
-                            );
-                        })
-                        .map(([query, results]) => (
-                            <div key={query}>
-                                <div className="flex justify-between items-center mt-4">
-                                    <h2 className="font-bold">{query}</h2>
-                                    {!skippedQueries.has(query) && (
-                                        <button
-                                            onClick={() => skipQuery(query)}
-                                            className="bg-red-500 text-white rounded px-2 py-1"
-                                        >
-                                            Skip this ingredient
-                                        </button>
-                                    )}
+                    {ingredients.map((ingredient) => (
+                        <div
+                            key={
+                                ingredient.ingredient + "-" + ingredient.amount
+                            }
+                        >
+                            <div className="flex justify-between items-center mt-4">
+                                <div>
+                                    <h2 className="font-bold">
+                                        {ingredient.ingredient}
+                                    </h2>
+                                    <h2 className="text-gray-600">
+                                        {ingredient.amount}
+                                    </h2>
                                 </div>
-                                {!skippedQueries.has(query) && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
-                                        {results.map((item) => (
-                                            <div
-                                                key={item.href}
-                                                className={`border p-4 rounded ${
-                                                    isItemSelected(item)
-                                                        ? "border-green-500 border-2"
-                                                        : ""
-                                                }`}
-                                            >
-                                                <img
-                                                    src={item.image}
-                                                    alt={item.name}
-                                                    className="w-32 h-32 object-cover"
-                                                />
-                                                <a
-                                                    className="font-bold"
-                                                    href={item.href}
-                                                >
-                                                    {item.name}
-                                                </a>
-                                                <p>{item.size}</p>
-                                                <p>${item.price.toFixed(2)}</p>
-                                                <button
-                                                    onClick={() =>
-                                                        chooseItem(item)
-                                                    }
-                                                    className="bg-green-500 text-white rounded px-2 py-1 mt-2"
-                                                    disabled={isItemSelected(
-                                                        item
-                                                    )}
-                                                >
-                                                    {isItemSelected(item)
-                                                        ? "Added"
-                                                        : "Choose"}
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
+                                {!skippedQueries.has(ingredient.ingredient) && (
+                                    <button
+                                        onClick={() =>
+                                            skipQuery(ingredient.ingredient)
+                                        }
+                                        className="bg-red-500 text-white rounded px-2 py-1"
+                                    >
+                                        Skip this ingredient
+                                    </button>
                                 )}
                             </div>
-                        ))}
+                            {!items[ingredient.ingredient] && (
+                                <div>
+                                    <p className="text-gray-700">Loading...</p>
+                                </div>
+                            )}
+                            {!skippedQueries.has(ingredient.ingredient) &&
+                                items[ingredient.ingredient] && (
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
+                                        {items[ingredient.ingredient].map(
+                                            (item) => (
+                                                <div
+                                                    key={item.href}
+                                                    className={`border p-4 rounded ${
+                                                        isItemSelected(item)
+                                                            ? "border-green-500 border-2"
+                                                            : ""
+                                                    }`}
+                                                >
+                                                    <img
+                                                        src={item.image}
+                                                        alt={item.name}
+                                                        className="w-32 h-32 object-cover"
+                                                    />
+                                                    <a
+                                                        className="font-bold"
+                                                        target="_blank"
+                                                        href={item.href}
+                                                    >
+                                                        {item.name}
+                                                    </a>
+                                                    <p>{item.size}</p>
+                                                    <p>
+                                                        ${item.price.toFixed(2)}
+                                                    </p>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (
+                                                                isItemSelected(
+                                                                    item
+                                                                )
+                                                            ) {
+                                                                unchooseItem(
+                                                                    item
+                                                                );
+                                                            } else {
+                                                                chooseItem(
+                                                                    item,
+                                                                    ingredient
+                                                                );
+                                                            }
+                                                        }}
+                                                        className="bg-green-500 text-white rounded px-2 py-1 mt-2"
+                                                        disabled={
+                                                            isItemSelected(
+                                                                item
+                                                            ) &&
+                                                            selectedItems.length ===
+                                                                0
+                                                        }
+                                                    >
+                                                        {isItemSelected(item)
+                                                            ? "Unadd"
+                                                            : "Choose"}
+                                                    </button>
+                                                </div>
+                                            )
+                                        )}
+                                    </div>
+                                )}
+                        </div>
+                    ))}
                 </div>
 
                 {/* Shopping Cart */}
@@ -161,30 +221,55 @@ const GrocerySearch: React.FC = () => {
                         </h2>
                         <div className="space-y-4">
                             {selectedItems
-                                .sort((a, b) => a.aisle.localeCompare(b.aisle))
-                                .map((item, index) => (
-                                    <div
-                                        key={index}
-                                        className="flex items-center gap-4"
-                                    >
-                                        <img
-                                            src={item.image}
-                                            alt={item.name}
-                                            className="w-12 h-12 object-cover rounded"
-                                        />
-                                        <div className="flex-grow">
-                                            <p className="font-semibold text-sm">
-                                                {item.name}
-                                            </p>
-                                            <p className="text-sm text-gray-600">
-                                                {item.aisle}
-                                            </p>
-                                            <p className="text-sm text-gray-600">
-                                                ${item.price.toFixed(2)}
-                                            </p>
+                                .sort((a, b) =>
+                                    a.item.aisle.localeCompare(b.item.aisle)
+                                )
+                                .map(({ item, ingredient }, index) => {
+                                    const timesMore =
+                                        calculateIngredientMultiplier(
+                                            item,
+                                            ingredient
+                                        );
+                                    return (
+                                        <div
+                                            key={index}
+                                            className="flex items-center gap-4"
+                                        >
+                                            <img
+                                                src={item.image}
+                                                alt={item.name}
+                                                className="w-12 h-12 object-cover rounded"
+                                            />
+                                            <div className="flex-grow">
+                                                <p className="font-semibold text-sm">
+                                                    {item.name}
+                                                </p>
+                                                <p className="text-sm">
+                                                    {item.size}
+                                                    {ingredient.amount && (
+                                                        <span className="text-gray-500">
+                                                            {" "}
+                                                            Need{" "}
+                                                            {ingredient.amount}
+                                                        </span>
+                                                    )}
+                                                </p>
+                                                <p className="text-sm text-gray-500">
+                                                    {item.aisle}
+                                                </p>
+                                                <p className="text-sm text-gray-600">
+                                                    ${item.price.toFixed(2)}
+                                                </p>
+                                                <p className="text-sm">
+                                                    {timesMore
+                                                        ? timesMore +
+                                                          " times more"
+                                                        : ""}
+                                                </p>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             <div className="border-t pt-4 mt-4">
                                 <div className="flex justify-between items-center font-bold">
                                     <span>Total:</span>
