@@ -29,6 +29,7 @@ export function UrlInput({ onSubmit, isLoading, hasSubmittedIngredients = false,
     }
 
     const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+        e.preventDefault()
         const pastedText = e.clipboardData.getData("text")
         if (pastedText && pastedText.trim()) {
             setUrl(pastedText.trim())

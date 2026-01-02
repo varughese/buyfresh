@@ -13,7 +13,7 @@ interface RecipeCardProps {
 }
 
 export function RecipeCard({ recipe }: RecipeCardProps) {
-    const [isExpanded, setIsExpanded] = useState(false)
+    const [isExpanded, setIsExpanded] = useState(true)
 
     return (
         <Card className="mt-4">
