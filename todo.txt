@@ -1,0 +1,4 @@
+- group ingredients together and add quantites
+- allow multiple recipes to be added
+- mobile sucks, switch from 4 vertical cards to more of a table format, reduce margin, make tighter
+- allow scaling up of recipes and suggesting how much to buy

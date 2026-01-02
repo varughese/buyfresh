@@ -28,8 +28,8 @@ export async function scrapeRecipeUrl(
   url: string
 ): Promise<RecipeScraperResponse | null> {
   try {
-    const apiUrl = `https://eon16mr9g3by571.m.pipedream.net/?url=${encodeURIComponent(url)}`;
-    
+    const apiUrl = `/api/recipe?url=${encodeURIComponent(url)}`;
+
     const response = await fetch(apiUrl, {
       headers: {
         Accept: "application/json",
