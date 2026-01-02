@@ -3,282 +3,16 @@
 
 import { useState } from "react";
 import { Ingredient, parseRecipe } from "./ingredient-parser";
-import { recipeMultiplier } from "./converter";
 import { searchWegmans, type GroceryItem } from "@/lib/wegmans";
+import { ManualInput } from "@/components/manual-input";
+import { IngredientResults } from "@/components/ingredient-results";
+import { ShoppingList } from "@/components/shopping-list";
 
-const GrocerySearch: React.FC = () => {
-    const [queries, setQueries] = useState<string>(DEFAULT_QUERY);
-    const [items, setItems] = useState<{ [key: string]: GroceryItem[] }>({});
-    const [selectedItems, setSelectedItems] = useState<
-        {
-            item: GroceryItem;
-            ingredient: Ingredient;
-        }[]
-    >([]);
-    const [skippedQueries, setSkippedQueries] = useState<Set<string>>(
-        new Set()
-    );
-    const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-
-    const searchGroceries = async () => {
-        setItems({});
-        const queryList = parseRecipe(queries);
-        setIngredients(queryList);
-
-        const results: { [key: string]: GroceryItem[] } = {};
-
-        await Promise.all(
-            queryList.map(async (parsedIngredient) => {
-                const ingredient = parsedIngredient.ingredient;
-                const data = await searchWegmans({ query: ingredient });
-                results[ingredient] = data.slice(0, 4);
-                setItems((prevItems) => ({
-                    ...prevItems,
-                    [ingredient]: results[ingredient],
-                }));
-            })
-        );
-    };
-
-    const chooseItem = (item: GroceryItem, ingredient: Ingredient) => {
-        setSelectedItems((prev) => [...prev, { item, ingredient }]);
-    };
-
-    const unchooseItem = (item: GroceryItem) => {
-        setSelectedItems((prev) =>
-            prev.filter((i) => i.item.href !== item.href)
-        );
-    };
-
-    const skipQuery = (query: string) => {
-        setSkippedQueries((prev) => new Set([...prev, query]));
-    };
-
-    const isItemSelected = (item: GroceryItem) => {
-        return selectedItems
-            .map((i) => i.item)
-            .some((selected) => selected.href === item.href);
-    };
-
-    const totalPrice = selectedItems
-        .map((i) => i.item)
-        .reduce((sum, item) => sum + item.price, 0);
-
-    const calculateIngredientMultiplier = (
-        item: GroceryItem,
-        ingredient: Ingredient
-    ) => {
-        const conversion = recipeMultiplier(item.size, ingredient.amount);
-
-        if (!conversion || conversion.error) {
-            return null;
-        }
-
-        return conversion.conversion;
-    };
-
-    return (
-        <div>
-            <div className="flex gap-8">
-                <h3 className="text-lg font-semibold">
-                    Bulk search Astor Pl Wegmans for ingredients
-                </h3>
-            </div>
-            <div className="flex gap-8 flex-col md:flex-row">
-                <div className="flex-grow flex flex-col gap-4">
-                    {/* Input for multiple items */}
-                    <textarea
-                        value={queries}
-                        onChange={(e) => setQueries(e.target.value)}
-                        placeholder="Enter recipe items, one per line"
-                        className="border p-2 w-full"
-                        rows={30}
-                    />
-                    <button
-                        onClick={searchGroceries}
-                        className="bg-blue-500 text-white px-4 py-2 rounded"
-                    >
-                        Search
-                    </button>
-
-                    {/* Display search results */}
-                    {ingredients.map((ingredient) => (
-                        <div
-                            key={
-                                ingredient.ingredient + "-" + ingredient.amount
-                            }
-                        >
-                            <div className="flex justify-between items-center mt-4">
-                                <div>
-                                    <h2 className="font-bold">
-                                        {ingredient.ingredient}
-                                    </h2>
-                                    <h2 className="text-gray-600">
-                                        {ingredient.amount}
-                                    </h2>
-                                </div>
-                                {!skippedQueries.has(ingredient.ingredient) && (
-                                    <button
-                                        onClick={() =>
-                                            skipQuery(ingredient.ingredient)
-                                        }
-                                        className="bg-red-500 text-white rounded px-2 py-1"
-                                    >
-                                        Skip this ingredient
-                                    </button>
-                                )}
-                            </div>
-                            {!items[ingredient.ingredient] && (
-                                <div>
-                                    <p className="text-gray-700">Loading...</p>
-                                </div>
-                            )}
-                            {!skippedQueries.has(ingredient.ingredient) &&
-                                items[ingredient.ingredient] && (
-                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
-                                        {items[ingredient.ingredient].map(
-                                            (item) => (
-                                                <div
-                                                    key={item.href}
-                                                    className={`border p-4 rounded ${isItemSelected(item)
-                                                        ? "border-green-500 border-2"
-                                                        : ""
-                                                        }`}
-                                                >
-                                                    <img
-                                                        src={item.images[0] || ""}
-                                                        alt={item.name}
-                                                        className="w-32 h-32 object-cover"
-                                                    />
-                                                    <a
-                                                        className="font-bold"
-                                                        target="_blank"
-                                                        href={item.href}
-                                                    >
-                                                        {item.name}
-                                                    </a>
-                                                    <p>{item.size}</p>
-                                                    <p>
-                                                        ${item.price.toFixed(2)}
-                                                    </p>
-                                                    <button
-                                                        onClick={() => {
-                                                            if (
-                                                                isItemSelected(
-                                                                    item
-                                                                )
-                                                            ) {
-                                                                unchooseItem(
-                                                                    item
-                                                                );
-                                                            } else {
-                                                                chooseItem(
-                                                                    item,
-                                                                    ingredient
-                                                                );
-                                                            }
-                                                        }}
-                                                        className="bg-green-500 text-white rounded px-2 py-1 mt-2"
-                                                        disabled={
-                                                            isItemSelected(
-                                                                item
-                                                            ) &&
-                                                            selectedItems.length ===
-                                                            0
-                                                        }
-                                                    >
-                                                        {isItemSelected(item)
-                                                            ? "Unadd"
-                                                            : "Choose"}
-                                                    </button>
-                                                </div>
-                                            )
-                                        )}
-                                    </div>
-                                )}
-                        </div>
-                    ))}
-                </div>
-
-                {/* Shopping Cart */}
-                <div className="w-80 shrink-0">
-                    <div className="sticky top-8 border rounded-lg p-4">
-                        <h2 className="font-bold text-lg mb-4">
-                            Shopping Cart
-                        </h2>
-                        <div className="space-y-4">
-                            {selectedItems
-                                .sort((a, b) =>
-                                    a.item.planogram.aisle.localeCompare(b.item.planogram.aisle)
-                                )
-                                .map(({ item, ingredient }, index) => {
-                                    const timesMore =
-                                        calculateIngredientMultiplier(
-                                            item,
-                                            ingredient
-                                        );
-                                    return (
-                                        <div
-                                            key={index}
-                                            className="flex items-center gap-4"
-                                        >
-                                            <img
-                                                src={item.images[0] || ""}
-                                                alt={item.name}
-                                                className="w-12 h-12 object-cover rounded"
-                                            />
-                                            <div className="flex-grow">
-                                                <p className="font-semibold text-sm">
-                                                    {item.name}
-                                                </p>
-                                                <p className="text-sm">
-                                                    {item.size}
-                                                    {ingredient.amount && (
-                                                        <span className="text-gray-500">
-                                                            {" "}
-                                                            Need{" "}
-                                                            {ingredient.amount}
-                                                        </span>
-                                                    )}
-                                                </p>
-                                                <p className="text-sm text-gray-500">
-                                                    {item.planogram.aisle}
-                                                </p>
-                                                <p className="text-sm text-gray-600">
-                                                    ${item.price.toFixed(2)}
-                                                </p>
-                                                <p className="text-sm">
-                                                    {timesMore
-                                                        ? timesMore +
-                                                        " times more"
-                                                        : ""}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            <div className="border-t pt-4 mt-4">
-                                <div className="flex justify-between items-center font-bold">
-                                    <span>Total:</span>
-                                    <span>${totalPrice.toFixed(2)}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-export default function Home() {
-    return (
-        <div className="min-h-screen p-8 pb-20 grid place-items-center">
-            <main className="w-full max-w-6xl">
-                <GrocerySearch />
-            </main>
-        </div>
-    );
+interface IngredientWithMatches {
+  ingredient: Ingredient;
+  matches: GroceryItem[];
+  selected?: GroceryItem;
+  skipped?: boolean;
 }
 
 const DEFAULT_QUERY = `Chicken thigh, boneless skinless(2 lb, cut into 1/4" pieces)
@@ -302,3 +36,131 @@ Rice vinegar(3 Tbsp)
 Honey(2 Tbsp)
 Sesame oil(1 Tbsp)
 Cornstarch(1 Tbsp)`;
+
+export default function Home() {
+  const [ingredients, setIngredients] = useState<IngredientWithMatches[]>([]);
+  const [selectedItems, setSelectedItems] = useState<
+    {
+      item: GroceryItem;
+      ingredient: Ingredient;
+    }[]
+  >([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleManualSubmit = async (text: string) => {
+    setIsLoading(true);
+    try {
+      const parsedIngredients = parseRecipe(text);
+
+      // Search store for each ingredient
+      const ingredientsWithMatches = await Promise.all(
+        parsedIngredients.map(async (ingredient) => {
+          const data = await searchWegmans({ query: ingredient.ingredient });
+          return {
+            ingredient,
+            matches: data.slice(0, 4),
+          };
+        })
+      );
+
+      setIngredients(ingredientsWithMatches);
+    } catch (error) {
+      console.error("Error searching store:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSelectProduct = (ingredient: Ingredient, product: GroceryItem) => {
+    // Check if item is already selected
+    const isAlreadySelected = selectedItems.some(
+      (item) => item.item.href === product.href
+    );
+
+    if (isAlreadySelected) {
+      // Remove from selected items
+      setSelectedItems((prev) =>
+        prev.filter((item) => item.item.href !== product.href)
+      );
+      // Update ingredient state
+      setIngredients((prev) =>
+        prev.map((ing) =>
+          ing.ingredient.ingredient === ingredient.ingredient
+            ? { ...ing, selected: undefined, skipped: false }
+            : ing
+        )
+      );
+    } else {
+      // Add to selected items
+      setSelectedItems((prev) => [...prev, { item: product, ingredient }]);
+      // Update ingredient state
+      setIngredients((prev) =>
+        prev.map((ing) =>
+          ing.ingredient.ingredient === ingredient.ingredient
+            ? { ...ing, selected: product, skipped: false }
+            : ing
+        )
+      );
+    }
+  };
+
+  const handleSkip = (ingredient: Ingredient) => {
+    setIngredients((prev) =>
+      prev.map((ing) =>
+        ing.ingredient.ingredient === ingredient.ingredient
+          ? { ...ing, selected: undefined, skipped: true }
+          : ing
+      )
+    );
+    // Remove from selected items if it was selected
+    setSelectedItems((prev) =>
+      prev.filter(
+        (item) => item.ingredient.ingredient !== ingredient.ingredient
+      )
+    );
+  };
+
+  const handleClear = () => {
+    setIngredients([]);
+    setSelectedItems([]);
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold tracking-tight text-foreground">
+            Bulk search Astor Pl Wegmans for ingredients
+          </h1>
+          <p className="mt-2 text-lg text-muted-foreground">
+            Turn recipes into shoppable ingredient lists
+          </p>
+        </div>
+
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <ManualInput
+              onSubmit={handleManualSubmit}
+              isLoading={isLoading}
+              defaultValue={DEFAULT_QUERY}
+            />
+
+            {ingredients.length > 0 && (
+              <div className="mt-6">
+                <IngredientResults
+                  ingredients={ingredients}
+                  onSelectProduct={handleSelectProduct}
+                  onSkip={handleSkip}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="lg:col-span-1">
+            <ShoppingList items={selectedItems} onClear={handleClear} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
