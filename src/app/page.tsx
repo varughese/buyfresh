@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Ingredient, parseRecipe } from "./ingredient-parser";
 import { searchWegmans, type GroceryItem } from "@/lib/wegmans";
 import { scrapeRecipeUrl, type Recipe } from "@/lib/recipe-url-scraper";
@@ -42,6 +43,7 @@ Sesame oil(1 Tbsp)
 Cornstarch(1 Tbsp)`;
 
 export default function Home() {
+    const searchParams = useSearchParams();
     const [ingredients, setIngredients] = useState<IngredientWithMatches[]>([]);
     const [selectedItems, setSelectedItems] = useState<
         {
@@ -53,6 +55,7 @@ export default function Home() {
     const [recipe, setRecipe] = useState<Recipe | null>(null);
     const [progressMessage, setProgressMessage] = useState<string>("");
     const [progressValue, setProgressValue] = useState<number>(0);
+    const [hasProcessedUrl, setHasProcessedUrl] = useState(false);
 
     const handleManualSubmit = async (text: string) => {
         setIsLoading(true);
@@ -83,7 +86,7 @@ export default function Home() {
         }
     };
 
-    const handleUrlSubmit = async (url: string) => {
+    const handleUrlSubmit = useCallback(async (url: string) => {
         setIsLoading(true);
         setProgressMessage("Downloading website...");
         setProgressValue(10);
@@ -163,7 +166,7 @@ export default function Home() {
                 setProgressValue(0);
             }, 300);
         }
-    };
+    }, []);
 
     const handleSelectProduct = (ingredient: Ingredient, product: GroceryItem) => {
         // Check if item is already selected
@@ -258,6 +261,15 @@ export default function Home() {
         setRecipe(null);
     };
 
+    // Auto-process URL from query parameter on page load
+    useEffect(() => {
+        const urlParam = searchParams.get("url");
+        if (urlParam && !hasProcessedUrl) {
+            setHasProcessedUrl(true);
+            handleUrlSubmit(urlParam);
+        }
+    }, [searchParams, hasProcessedUrl, handleUrlSubmit]);
+
     return (
         <div className="min-h-screen bg-background">
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -295,6 +307,12 @@ export default function Home() {
                             </TabsList>
                         </Tabs>
 
+                        {recipe && (
+                            <div className="mt-6">
+                                <RecipeCard recipe={recipe} />
+                            </div>
+                        )}
+
                         {ingredients.length > 0 && (
                             <div className="mt-6">
                                 <IngredientResults
@@ -304,12 +322,6 @@ export default function Home() {
                                     onUnskip={handleUnskip}
                                     onUpdateSearch={handleUpdateSearch}
                                 />
-                            </div>
-                        )}
-
-                        {recipe && (
-                            <div className="mt-6">
-                                <RecipeCard recipe={recipe} />
                             </div>
                         )}
                     </div>

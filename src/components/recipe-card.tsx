@@ -13,22 +13,17 @@ interface RecipeCardProps {
 }
 
 export function RecipeCard({ recipe }: RecipeCardProps) {
-    const [isExpanded, setIsExpanded] = useState(true)
+    const [isExpanded, setIsExpanded] = useState(false)
 
     return (
-        <Card className="mt-4">
+        <Card className="mt-4 gap-0">
             <CardHeader>
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                         <CardTitle className="flex items-center gap-2">
                             <ChefHat className="h-5 w-5" />
                             {recipe.name || "Recipe"}
                         </CardTitle>
-                        {recipe.description && (
-                            <CardDescription className="mt-2 line-clamp-2">
-                                {recipe.description}
-                            </CardDescription>
-                        )}
                     </div>
                     <Button
                         variant="ghost"
@@ -44,6 +39,74 @@ export function RecipeCard({ recipe }: RecipeCardProps) {
                     </Button>
                 </div>
             </CardHeader>
+            {!isExpanded && (
+                <CardContent className="space-y-3 pt-0">
+                    <div className="flex gap-4">
+                        {recipe.image && recipe.image.length > 0 && (
+                            <div className="rounded-lg overflow-hidden shrink-0">
+                                <img
+                                    src={recipe.image[0]}
+                                    alt={recipe.name}
+                                    className="w-24 h-24 object-cover"
+                                />
+                            </div>
+                        )}
+                        <div className="flex-1 min-w-0 space-y-2">
+                            {recipe.description && (
+                                <p className="text-sm text-muted-foreground line-clamp-2">
+                                    {recipe.description}
+                                </p>
+                            )}
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                {recipe.prepTime && (
+                                    <div className="flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        <span>Prep: {recipe.prepTime}</span>
+                                    </div>
+                                )}
+                                {recipe.cookTime && (
+                                    <div className="flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        <span>Cook: {recipe.cookTime}</span>
+                                    </div>
+                                )}
+                                {recipe.totalTime && (
+                                    <div className="flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        <span>Total: {recipe.totalTime}</span>
+                                    </div>
+                                )}
+                                {recipe.yield && (
+                                    <div className="flex items-center gap-1">
+                                        <Users className="h-3 w-3" />
+                                        <span>Servings: {recipe.yield}</span>
+                                    </div>
+                                )}
+                            </div>
+                            {(recipe.category && recipe.category.length > 0) || (recipe.cuisine && recipe.cuisine.length > 0) ? (
+                                <div className="flex flex-wrap gap-1">
+                                    {recipe.category?.map((cat, index) => (
+                                        <span
+                                            key={`cat-${index}`}
+                                            className="px-2 py-0.5 text-xs bg-muted rounded-md"
+                                        >
+                                            {cat}
+                                        </span>
+                                    ))}
+                                    {recipe.cuisine?.map((cuisine, index) => (
+                                        <span
+                                            key={`cuisine-${index}`}
+                                            className="px-2 py-0.5 text-xs bg-muted rounded-md"
+                                        >
+                                            {cuisine}
+                                        </span>
+                                    ))}
+                                </div>
+                            ) : null}
+                        </div>
+                    </div>
+                </CardContent>
+            )}
             {isExpanded && (
                 <CardContent className="space-y-4">
                     {recipe.image && recipe.image.length > 0 && (
@@ -51,7 +114,7 @@ export function RecipeCard({ recipe }: RecipeCardProps) {
                             <img
                                 src={recipe.image[0]}
                                 alt={recipe.name}
-                                className="w-full h-48 object-cover"
+                                className="w-48 h-48 object-cover"
                             />
                         </div>
                     )}
@@ -81,7 +144,7 @@ export function RecipeCard({ recipe }: RecipeCardProps) {
                         {recipe.yield && (
                             <div className="flex items-center gap-2">
                                 <Users className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-muted-foreground">Serves:</span>
+                                <span className="text-muted-foreground">Servings:</span>
                                 <span>{recipe.yield}</span>
                             </div>
                         )}
