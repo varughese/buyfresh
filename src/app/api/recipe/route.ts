@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import tinyduration from "tinyduration";
 
@@ -19,7 +20,6 @@ interface Recipe {
 /**
  * Finds LD+JSON in HTML using regex (no cheerio needed)
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function findLDJSON(url: string): Promise<any> {
     const req = await fetch(url);
     const html = await req.text();
@@ -122,7 +122,6 @@ function durationToStr(d: string | undefined): string {
 /**
  * Extracts recipe data from LD+JSON object
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function findRecipe(ldjson: any): Recipe | null {
     const type = ldjson["@type"];
     const isRecipe =
@@ -217,10 +216,17 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        return NextResponse.json({
-            success: true,
-            recipe,
-        });
+        return NextResponse.json(
+            {
+                success: true,
+                recipe,
+            },
+            {
+                headers: {
+                    "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+                },
+            }
+        );
     } catch (error) {
         console.error("Error scraping recipe:", error);
         return NextResponse.json(
