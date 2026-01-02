@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Ingredient, parseRecipe } from "./ingredient-parser";
 import { searchWegmans, type GroceryItem } from "@/lib/wegmans";
@@ -42,8 +42,29 @@ Honey(2 Tbsp)
 Sesame oil(1 Tbsp)
 Cornstarch(1 Tbsp)`;
 
-export default function Home() {
+function UrlParamProcessor({
+    onUrlSubmit,
+    hasProcessedUrl,
+    setHasProcessedUrl
+}: {
+    onUrlSubmit: (url: string) => void;
+    hasProcessedUrl: boolean;
+    setHasProcessedUrl: (value: boolean) => void;
+}) {
     const searchParams = useSearchParams();
+
+    useEffect(() => {
+        const urlParam = searchParams.get("url");
+        if (urlParam && !hasProcessedUrl) {
+            setHasProcessedUrl(true);
+            onUrlSubmit(urlParam);
+        }
+    }, [searchParams, hasProcessedUrl, onUrlSubmit, setHasProcessedUrl]);
+
+    return null;
+}
+
+export default function Home() {
     const [ingredients, setIngredients] = useState<IngredientWithMatches[]>([]);
     const [selectedItems, setSelectedItems] = useState<
         {
@@ -261,17 +282,15 @@ export default function Home() {
         setRecipe(null);
     };
 
-    // Auto-process URL from query parameter on page load
-    useEffect(() => {
-        const urlParam = searchParams.get("url");
-        if (urlParam && !hasProcessedUrl) {
-            setHasProcessedUrl(true);
-            handleUrlSubmit(urlParam);
-        }
-    }, [searchParams, hasProcessedUrl, handleUrlSubmit]);
-
     return (
         <div className="min-h-screen bg-background">
+            <Suspense fallback={null}>
+                <UrlParamProcessor
+                    onUrlSubmit={handleUrlSubmit}
+                    hasProcessedUrl={hasProcessedUrl}
+                    setHasProcessedUrl={setHasProcessedUrl}
+                />
+            </Suspense>
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 <div className="mb-8">
                     <h1 className="text-4xl font-bold tracking-tight text-foreground">
