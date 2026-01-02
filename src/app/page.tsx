@@ -4,16 +4,7 @@
 import { useState } from "react";
 import { Ingredient, parseRecipe } from "./ingredient-parser";
 import { recipeMultiplier } from "./converter";
-
-interface GroceryItem {
-    aisle: string;
-    href: string;
-    store: "wegmans";
-    image: string;
-    name: string;
-    price: number;
-    size: string;
-}
+import { searchWegmans, type GroceryItem } from "@/lib/wegmans";
 
 const GrocerySearch: React.FC = () => {
     const [queries, setQueries] = useState<string>(DEFAULT_QUERY);
@@ -39,10 +30,7 @@ const GrocerySearch: React.FC = () => {
         await Promise.all(
             queryList.map(async (parsedIngredient) => {
                 const ingredient = parsedIngredient.ingredient;
-                const response = await fetch(
-                    `https://buyfresh-backend.matvarughese3.workers.dev/search?q=${ingredient}`
-                );
-                const data: GroceryItem[] = await response.json();
+                const data = await searchWegmans({ query: ingredient });
                 results[ingredient] = data.slice(0, 4);
                 setItems((prevItems) => ({
                     ...prevItems,
@@ -152,14 +140,13 @@ const GrocerySearch: React.FC = () => {
                                             (item) => (
                                                 <div
                                                     key={item.href}
-                                                    className={`border p-4 rounded ${
-                                                        isItemSelected(item)
-                                                            ? "border-green-500 border-2"
-                                                            : ""
-                                                    }`}
+                                                    className={`border p-4 rounded ${isItemSelected(item)
+                                                        ? "border-green-500 border-2"
+                                                        : ""
+                                                        }`}
                                                 >
                                                     <img
-                                                        src={item.image}
+                                                        src={item.images[0] || ""}
                                                         alt={item.name}
                                                         className="w-32 h-32 object-cover"
                                                     />
@@ -197,7 +184,7 @@ const GrocerySearch: React.FC = () => {
                                                                 item
                                                             ) &&
                                                             selectedItems.length ===
-                                                                0
+                                                            0
                                                         }
                                                     >
                                                         {isItemSelected(item)
@@ -222,7 +209,7 @@ const GrocerySearch: React.FC = () => {
                         <div className="space-y-4">
                             {selectedItems
                                 .sort((a, b) =>
-                                    a.item.aisle.localeCompare(b.item.aisle)
+                                    a.item.planogram.aisle.localeCompare(b.item.planogram.aisle)
                                 )
                                 .map(({ item, ingredient }, index) => {
                                     const timesMore =
@@ -236,7 +223,7 @@ const GrocerySearch: React.FC = () => {
                                             className="flex items-center gap-4"
                                         >
                                             <img
-                                                src={item.image}
+                                                src={item.images[0] || ""}
                                                 alt={item.name}
                                                 className="w-12 h-12 object-cover rounded"
                                             />
@@ -255,7 +242,7 @@ const GrocerySearch: React.FC = () => {
                                                     )}
                                                 </p>
                                                 <p className="text-sm text-gray-500">
-                                                    {item.aisle}
+                                                    {item.planogram.aisle}
                                                 </p>
                                                 <p className="text-sm text-gray-600">
                                                     ${item.price.toFixed(2)}
@@ -263,7 +250,7 @@ const GrocerySearch: React.FC = () => {
                                                 <p className="text-sm">
                                                     {timesMore
                                                         ? timesMore +
-                                                          " times more"
+                                                        " times more"
                                                         : ""}
                                                 </p>
                                             </div>
