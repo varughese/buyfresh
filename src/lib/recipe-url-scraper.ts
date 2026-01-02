@@ -16,7 +16,9 @@ export interface Recipe {
 
 export interface RecipeScraperResponse {
   success: boolean;
-  recipe: Recipe;
+  recipe?: Recipe;
+  message?: string;
+  rawText?: string;
 }
 
 /**
@@ -42,10 +44,7 @@ export async function scrapeRecipeUrl(
 
     const data: RecipeScraperResponse = await response.json();
 
-    if (!data.success || !data.recipe) {
-      return null;
-    }
-
+    // Return the full response including error details
     return data;
   } catch (error) {
     console.error("Error scraping recipe URL:", error);

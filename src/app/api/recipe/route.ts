@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
+import * as cheerio from "cheerio";
 import tinyduration from "tinyduration";
 
 // Types matching the existing Recipe interface
@@ -18,19 +19,22 @@ interface Recipe {
 }
 
 /**
- * Finds LD+JSON in HTML using regex (no cheerio needed)
+ * Finds LD+JSON in HTML using cheerio
  */
 async function findLDJSON(url: string): Promise<any> {
     const req = await fetch(url);
     const html = await req.text();
+    const $ = cheerio.load(html);
 
-    // Regex to match script tags with type="application/ld+json"
-    const regex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-    const matches = html.matchAll(regex);
+    // Find all script tags with type="application/ld+json"
+    const scriptTags = $('script[type="application/ld+json"]');
 
-    for (const match of matches) {
+    for (let i = 0; i < scriptTags.length; i++) {
         try {
-            const jsonContent = match[1].trim();
+            const scriptContent = $(scriptTags[i]).html();
+            if (!scriptContent) continue;
+
+            const jsonContent = scriptContent.trim();
             const content = JSON.parse(jsonContent);
 
             // Handle array case - check each element for Recipe
@@ -73,9 +77,52 @@ async function findLDJSON(url: string): Promise<any> {
 }
 
 /**
+ * Extracts raw text from HTML while preserving structure
+ */
+async function extractRawText(url: string): Promise<string> {
+    const req = await fetch(url);
+    const html = await req.text();
+    const $ = cheerio.load(html);
+
+    // Remove script and style elements
+    $("script, style").remove();
+
+    // Get body or entire document
+    const body = $("body");
+    const container = body.length > 0 ? body : $("html");
+
+    // Block-level elements that should have newlines after them
+    const blockElements = [
+        "p", "div", "h1", "h2", "h3", "h4", "h5", "h6",
+        "li", "br", "hr", "section", "article", "header", "footer",
+        "nav", "aside", "main", "blockquote", "pre", "ul", "ol"
+    ];
+
+    // Add newlines after block elements
+    blockElements.forEach((tag) => {
+        container.find(tag).each(function () {
+            if (tag === "br") {
+                $(this).replaceWith("\n");
+            } else {
+                $(this).append("\n");
+            }
+        });
+    });
+
+    // Get text content
+    const text = container.text();
+
+    // Clean up whitespace while preserving newlines
+    return text
+        .replace(/[ \t]+/g, " ") // Replace multiple spaces/tabs with single space
+        .replace(/[ \t]*\n[ \t]*/g, "\n") // Clean up spaces around newlines
+        .replace(/\n{3,}/g, "\n\n") // Replace 3+ newlines with double newline
+        .trim();
+}
+
+/**
  * Parses instructions from LD+JSON format
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseInstructions(instructions: any[]): string[] {
     const result: string[] = [];
     for (const instruction of instructions) {
@@ -113,7 +160,6 @@ function durationToStr(d: string | undefined): string {
             type: "conjunction",
         });
         return formatter.format(result);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (_error: unknown) {
         return "";
     }
@@ -200,9 +246,12 @@ export async function GET(request: NextRequest) {
         const ldjson = await findLDJSON(url);
 
         if (!ldjson) {
+            // Return raw text if LD+JSON not found
+            const rawText = await extractRawText(url);
             return NextResponse.json({
                 success: false,
                 message: "LD+JSON not found.",
+                rawText,
             });
         }
 
@@ -210,9 +259,12 @@ export async function GET(request: NextRequest) {
         const recipe = findRecipe(ldjson);
 
         if (!recipe) {
+            // Return raw text if recipe not found in LD+JSON
+            const rawText = await extractRawText(url);
             return NextResponse.json({
                 success: false,
                 message: "Recipe not found.",
+                rawText,
             });
         }
 

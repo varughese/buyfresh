@@ -11,6 +11,8 @@ import { IngredientResults } from "@/components/ingredient-results";
 import { ShoppingList } from "@/components/shopping-list";
 import { RecipeCard } from "@/components/recipe-card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 interface IngredientWithMatches {
     ingredient: Ingredient;
@@ -77,6 +79,10 @@ export default function Home() {
     const [progressMessage, setProgressMessage] = useState<string>("");
     const [progressValue, setProgressValue] = useState<number>(0);
     const [hasProcessedUrl, setHasProcessedUrl] = useState(false);
+    const [showRawTextModal, setShowRawTextModal] = useState(false);
+    const [rawText, setRawText] = useState<string>("");
+    const [hasError, setHasError] = useState(false);
+    const [activeTab, setActiveTab] = useState<string>("url");
 
     const handleManualSubmit = async (text: string) => {
         setIsLoading(true);
@@ -109,6 +115,9 @@ export default function Home() {
 
     const handleUrlSubmit = useCallback(async (url: string) => {
         setIsLoading(true);
+        setHasError(false); // Clear previous error
+        setShowRawTextModal(false); // Close modal if open
+        setRawText(""); // Clear previous raw text
         setProgressMessage("Downloading website...");
         setProgressValue(10);
 
@@ -139,11 +148,22 @@ export default function Home() {
                 clearInterval(progressInterval);
             }
 
-            if (!recipeData || !recipeData.recipe || !recipeData.recipe.ingredients) {
-                console.error("Failed to scrape recipe or no ingredients found");
+            if (!recipeData || !recipeData.success || !recipeData.recipe || !recipeData.recipe.ingredients) {
+                // Handle error case - show error, switch to manual tab, and show raw text modal
+                setHasError(true);
+
+                if (recipeData?.rawText) {
+                    setRawText(recipeData.rawText);
+                    setShowRawTextModal(true);
+                }
+
+                // Switch to manual entry tab
+                setActiveTab("manual");
+
+                setProgressMessage("");
+                setProgressValue(0);
                 return;
             }
-
 
             // Store the recipe
             setRecipe(recipeData.recipe);
@@ -173,6 +193,9 @@ export default function Home() {
             setIngredients(ingredientsWithMatches);
         } catch (error) {
             console.error("Error scraping recipe or searching store:", error);
+            setHasError(true);
+            // Switch to manual entry tab on error
+            setActiveTab("manual");
             setProgressMessage("");
             setProgressValue(0);
         } finally {
@@ -303,7 +326,7 @@ export default function Home() {
 
                 <div className="grid gap-8 lg:grid-cols-3">
                     <div className="lg:col-span-2">
-                        <Tabs defaultValue="url" className="w-full">
+                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                             <TabsContent value="url">
                                 <UrlInput
                                     onSubmit={handleUrlSubmit}
@@ -311,6 +334,7 @@ export default function Home() {
                                     hasSubmittedIngredients={ingredients.length > 0}
                                     progressMessage={progressMessage}
                                     progressValue={progressValue}
+                                    hasError={hasError}
                                 />
                             </TabsContent>
                             <TabsContent value="manual" className="mt-4">
@@ -350,6 +374,24 @@ export default function Home() {
                     </div>
                 </div>
             </div>
+
+            <Dialog open={showRawTextModal} onOpenChange={setShowRawTextModal}>
+                <DialogContent className="max-w-4xl max-h-[80vh]">
+                    <DialogHeader>
+                        <DialogTitle>Raw Text from Recipe URL</DialogTitle>
+                        <DialogDescription>
+                            The recipe could not be parsed automatically. Here is the raw text extracted from the page.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="mt-4">
+                        <Textarea
+                            value={rawText}
+                            readOnly
+                            className="min-h-[400px] font-mono text-sm"
+                        />
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -15,9 +15,10 @@ interface UrlInputProps {
     hasSubmittedIngredients?: boolean
     progressMessage?: string
     progressValue?: number
+    hasError?: boolean
 }
 
-export function UrlInput({ onSubmit, isLoading, hasSubmittedIngredients = false, progressMessage = "", progressValue = 0 }: UrlInputProps) {
+export function UrlInput({ onSubmit, isLoading, hasSubmittedIngredients = false, progressMessage = "", progressValue = 0, hasError = false }: UrlInputProps) {
     const [url, setUrl] = useState("")
     const inputRef = useRef<HTMLInputElement>(null)
 
@@ -97,6 +98,11 @@ export function UrlInput({ onSubmit, isLoading, hasSubmittedIngredients = false,
                 <p className="text-sm mt-4 text-center text-muted-foreground">
                     Use <kbd className="px-1.5 py-0.5 text-xs font-semibold text-foreground bg-muted border border-border rounded">⌘ V</kbd> to paste the URL
                 </p>
+                {hasError && (
+                    <p className="text-sm mt-2 text-center text-destructive font-medium">
+                        Error
+                    </p>
+                )}
             </CardContent>
         </Card>
     )
