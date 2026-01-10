@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, Search, ChevronLeft, ChevronRight } from "lucide-react"
+import { Check, Search, ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import type { IngredientParseResult } from "@/app/ingredient-parser"
 import { formatIngredientAmount } from "@/app/ingredient-parser"
 import type { GroceryItem } from "@/lib/wegmans/types"
@@ -128,43 +128,68 @@ export function IngredientResults({ ingredients, onSelectProduct, onSkip, onUnsk
 
                                         return (
                                             <>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                                                    {paginatedResults.map((product) => (
-                                                        <div key={product.href} className="flex h-full flex-col rounded-lg border bg-card p-3">
-                                                            <div className="flex flex-1 flex-col gap-2">
-                                                                {product.images[0] && (
-                                                                    <img
-                                                                        src={product.images[0]}
-                                                                        alt={product.name}
-                                                                        className="h-32 w-full rounded object-cover"
-                                                                    />
-                                                                )}
-                                                                <div className="flex-1">
+                                                <div className="flex gap-3 overflow-x-auto pb-2">
+                                                    {paginatedResults.map((product) => {
+                                                        const isSelected = item.selected?.href === product.href
+                                                        return (
+                                                            <div
+                                                                key={product.href}
+                                                                className="relative flex flex-col items-center rounded-lg border bg-card overflow-hidden cursor-pointer hover:shadow-md transition-shadow flex-shrink-0 w-36"
+                                                                onClick={(e) => {
+                                                                    // Don't trigger card click if clicking the button
+                                                                    if ((e.target as HTMLElement).closest('button')) {
+                                                                        return
+                                                                    }
+                                                                    onSelectProduct(item.ingredient, product)
+                                                                }}
+                                                            >
+                                                                <div className="relative w-full aspect-square bg-muted max-w-24 overflow-hidden flex items-center justify-center">
+                                                                    {product.images[0] && (
+                                                                        <div>
+                                                                            <img
+                                                                                src={product.images[0]}
+                                                                                alt={product.name}
+                                                                                className="w-full h-full"
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation()
+                                                                            onSelectProduct(item.ingredient, product)
+                                                                        }}
+                                                                        className={`absolute top-2 right-0 h-8 w-8 rounded-full flex items-center justify-center shadow-md transition-colors ${isSelected
+                                                                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                                                            : "bg-background hover:bg-muted"
+                                                                            }`}
+                                                                        aria-label={isSelected ? "Remove product" : "Select product"}
+                                                                    >
+                                                                        {isSelected ? (
+                                                                            <Check className="h-4 w-4" />
+                                                                        ) : (
+
+                                                                            <Plus className="h-4 w-4" />
+                                                                        )}
+                                                                    </button>
+                                                                </div>
+                                                                <div className="p-3 space-y-1">
+                                                                    <p className="text-lg font-semibold">
+                                                                        ${product.price.toFixed(2)}
+                                                                    </p>
                                                                     <a
                                                                         href={product.href}
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
-                                                                        className="font-medium text-sm hover:underline"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        className="font-medium text-sm hover:underline block line-clamp-2"
                                                                     >
                                                                         {product.name}
                                                                     </a>
-                                                                    <p className="text-xs text-muted-foreground mt-1">{product.size}</p>
-                                                                    <p className="text-sm font-semibold mt-1">
-                                                                        ${product.price.toFixed(2)}
-                                                                    </p>
-                                                                    <p className="text-xs text-muted-foreground">{product.planogram.aisle}</p>
+                                                                    <p className="text-xs text-muted-foreground">{product.size}</p>
                                                                 </div>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant={item.selected?.href === product.href ? "default" : "outline"}
-                                                                    onClick={() => onSelectProduct(item.ingredient, product)}
-                                                                    className="mt-auto w-full"
-                                                                >
-                                                                    {item.selected?.href === product.href ? "Remove" : "Select"}
-                                                                </Button>
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        )
+                                                    })}
                                                 </div>
 
                                                 {totalPages > 1 && (
