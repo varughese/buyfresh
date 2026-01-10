@@ -96,6 +96,3 @@ export function ShoppingList({ items, onClear }: ShoppingListProps) {
     </Card>
   )
 }
-
-s
-r
