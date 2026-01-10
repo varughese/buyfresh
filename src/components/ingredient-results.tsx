@@ -72,14 +72,14 @@ export function IngredientResults({ ingredients, onSelectProduct, onSkip, onUnsk
                     <CardHeader>
                         <CardTitle className="text-lg">
                             <span>
+                                {formatIngredientAmount(item.ingredient) && (
+                                    <span className="font-normal border border-gray-300 rounded-md px-1 py-0.5 mr-2">
+                                        {formatIngredientAmount(item.ingredient)}
+                                    </span>
+                                )}
                                 {item.ingredient.ingredient} {item.ingredient.extra && (
                                     <span className="ml-2 text-sm font-normal text-muted-foreground">
                                         {item.ingredient.extra}
-                                    </span>
-                                )}
-                                {formatIngredientAmount(item.ingredient) && (
-                                    <span className="ml-2 text-sm font-normal text-muted-foreground">
-                                        {formatIngredientAmount(item.ingredient)}
                                     </span>
                                 )}
                             </span>
