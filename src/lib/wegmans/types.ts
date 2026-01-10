@@ -1,10 +1,10 @@
 // Public types for GroceryItem
 
 export interface Planogram {
-    aisle: string;
-    shelf: string;
-    aisleSide: string;
-    section: string;
+    aisle?: string;
+    shelf?: string;
+    aisleSide?: string;
+    section?: string;
 }
 
 export interface GroceryItem {

@@ -46,19 +46,19 @@ export function ShoppingList({ items, onClear }: ShoppingListProps) {
     const planogramB = b.item.planogram
 
     // Sort by aisle first
-    const aisleCompare = planogramA.aisle.localeCompare(planogramB.aisle)
+    const aisleCompare = planogramA.aisle?.localeCompare(planogramB.aisle ?? "") ?? 0
     if (aisleCompare !== 0) return aisleCompare
 
     // Then by aisle side
-    const sideCompare = planogramA.aisleSide.localeCompare(planogramB.aisleSide)
+    const sideCompare = planogramA.aisleSide?.localeCompare(planogramB.aisleSide ?? "") ?? 0
     if (sideCompare !== 0) return sideCompare
 
     // Then by section
-    const sectionCompare = planogramA.section.localeCompare(planogramB.section)
+    const sectionCompare = planogramA.section?.localeCompare(planogramB.section ?? "") ?? 0
     if (sectionCompare !== 0) return sectionCompare
 
     // Finally by shelf
-    return planogramA.shelf.localeCompare(planogramB.shelf)
+    return planogramA.shelf?.localeCompare(planogramB.shelf ?? "") ?? 0
   })
 
   const calculateIngredientMultiplier = (item: GroceryItem, ingredient: IngredientParseResult) => {
