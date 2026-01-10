@@ -2,3 +2,11 @@
 - allow multiple recipes to be added
 - mobile sucks, switch from 4 vertical cards to more of a table format, reduce margin, make tighter
 - allow scaling up of recipes and suggesting how much to buy
+
+
+- [x] sharing list prototype
+
+tech debt
+- get rid of encoded shopping list or whatever that items
+- refactor the shopping list componnet
+- the share list is broken

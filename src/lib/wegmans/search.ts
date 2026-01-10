@@ -225,6 +225,7 @@ function convertToGroceryItem(product: WegmansProduct): GroceryItem {
         name: product.productName,
         price,
         size: product.packSize,
+        objectID: product.objectID, // Store objectID for reliable lookups
     };
 }
 
@@ -452,4 +453,175 @@ export async function searchWegmans(
 
     // Convert to GroceryItem[]
     return allHits.map(convertToGroceryItem);
+}
+
+interface FetchBySlugsOptions {
+    slugs: string[];
+    objectIDs?: string[]; // Optional objectIDs for more reliable lookups
+    storeNumber?: string;
+    userToken?: string;
+}
+
+/**
+ * Fetch Wegmans products by their slugs using Algolia search
+ * 
+ * Since Algolia may not support filtering by slug directly, we search for each slug
+ * individually and match by exact slug to ensure we get the right products.
+ */
+export async function fetchProductsBySlugs(
+    options: FetchBySlugsOptions
+): Promise<GroceryItem[]> {
+    const {
+        slugs,
+        objectIDs,
+        storeNumber = DEFAULT_STORE_NUMBER,
+        userToken = DEFAULT_USER_TOKEN,
+    } = options;
+
+    if (slugs.length === 0) {
+        return [];
+    }
+
+    // If we have objectIDs, use them for direct filtering (much more reliable)
+    if (objectIDs && objectIDs.length > 0 && objectIDs.length === slugs.length) {
+        const objectIDFilter = objectIDs.filter(Boolean).map((id) => `objectID:"${id}"`).join(" OR ");
+
+        const requestBody = {
+            requests: [
+                {
+                    indexName: "products",
+                    analytics: false,
+                    attributesToHighlight: [],
+                    facets: ["*"],
+                    filters: `storeNumber:${storeNumber} AND fulfilmentType:instore AND excludeFromWeb:false AND isSoldAtStore:true AND (${objectIDFilter})`,
+                    hitsPerPage: 1000,
+                    page: 0,
+                    query: "",
+                    responseFields: [
+                        "hits",
+                        "hitsPerPage",
+                        "nbHits",
+                        "page",
+                    ],
+                    userToken: userToken,
+                },
+            ],
+        };
+
+        const url = `${ALGOLIA_BASE_URL}?x-algolia-agent=${ALGOLIA_AGENT}&x-algolia-api-key=${ALGOLIA_API_KEY}&x-algolia-application-id=${ALGOLIA_APP_ID}`;
+
+        try {
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    accept: "application/json",
+                    "content-type": "application/json",
+                },
+                body: JSON.stringify(requestBody),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data: WegmansSearchResponse = await response.json();
+            const allHits = data.results[0]?.hits ?? [];
+
+            // Create a map of objectID -> product for efficient lookup
+            const objectIDToProduct = new Map<string, WegmansProduct>();
+            allHits.forEach((product) => {
+                objectIDToProduct.set(product.objectID, product);
+            });
+
+            // Return products in the same order as requested, matching by objectID
+            return objectIDs
+                .map((objectID) => {
+                    const product = objectID ? objectIDToProduct.get(objectID) : null;
+                    return product ? convertToGroceryItem(product) : null;
+                })
+                .filter((item): item is GroceryItem => item !== null);
+        } catch (error) {
+            console.error("Error fetching by objectID, falling back to slug search:", error);
+            // Fall through to slug-based search
+        }
+    }
+
+    // Search for each slug individually and combine results
+    // Use exact phrase matching by wrapping slug in quotes for better precision
+    const searchPromises = slugs.map(async (slug) => {
+        // Try exact phrase match first (slug in quotes)
+        const exactQuery = `"${slug}"`;
+
+        const requestBody = {
+            requests: [
+                {
+                    indexName: "products",
+                    analytics: false,
+                    attributesToHighlight: [],
+                    facets: ["*"],
+                    filters: `storeNumber:${storeNumber} AND fulfilmentType:instore AND excludeFromWeb:false AND isSoldAtStore:true`,
+                    hitsPerPage: 50, // Increase to get more results to search through
+                    page: 0,
+                    query: exactQuery, // Search with exact phrase
+                    responseFields: [
+                        "hits",
+                        "hitsPerPage",
+                        "nbHits",
+                        "page",
+                    ],
+                    userToken: userToken,
+                },
+            ],
+        };
+
+        const url = `${ALGOLIA_BASE_URL}?x-algolia-agent=${ALGOLIA_AGENT}&x-algolia-api-key=${ALGOLIA_API_KEY}&x-algolia-application-id=${ALGOLIA_APP_ID}`;
+
+        try {
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    accept: "application/json",
+                    "content-type": "application/json",
+                },
+                body: JSON.stringify(requestBody),
+            });
+
+            if (!response.ok) {
+                console.warn(`Failed to search for slug ${slug}: ${response.status}`);
+                return null;
+            }
+
+            const data: WegmansSearchResponse = await response.json();
+            const hits = data.results[0]?.hits ?? [];
+
+            // Find exact match by slug (search might return similar results)
+            // Also try URL-decoding the slug in case it's encoded
+            const decodedSlug = decodeURIComponent(slug);
+            let exactMatch = hits.find((product) => product.slug === slug || product.slug === decodedSlug);
+
+            // If still not found, try case-insensitive match
+            if (!exactMatch) {
+                exactMatch = hits.find((product) =>
+                    product.slug.toLowerCase() === slug.toLowerCase() ||
+                    product.slug.toLowerCase() === decodedSlug.toLowerCase()
+                );
+            }
+
+            if (!exactMatch && hits.length > 0) {
+                // Log for debugging - see what we got vs what we wanted
+                console.warn(`Slug "${slug}" not found in ${hits.length} results. First result slug: "${hits[0]?.slug}"`);
+            }
+
+            return exactMatch ? convertToGroceryItem(exactMatch) : null;
+        } catch (error) {
+            console.error(`Error searching for slug ${slug}:`, error);
+            return null;
+        }
+    });
+
+    // Wait for all searches to complete
+    const results = await Promise.all(searchPromises);
+
+    // Return products in the same order as requested slugs, filtering out nulls
+    return results.filter((item): item is GroceryItem => item !== null);
 }
