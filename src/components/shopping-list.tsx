@@ -4,13 +4,14 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { ShoppingCart } from "lucide-react"
-import type { Ingredient } from "@/app/ingredient-parser"
+import type { IngredientParseResult } from "@/app/ingredient-parser"
+import { formatIngredientAmount } from "@/app/ingredient-parser"
 import type { GroceryItem } from "@/lib/wegmans/types"
 import { recipeMultiplier } from "@/app/converter"
 
 interface ShoppingListItem {
   item: GroceryItem
-  ingredient: Ingredient
+  ingredient: IngredientParseResult
 }
 
 interface ShoppingListProps {
@@ -25,8 +26,9 @@ export function ShoppingList({ items, onClear }: ShoppingListProps) {
     a.item.planogram.aisle.localeCompare(b.item.planogram.aisle)
   )
 
-  const calculateIngredientMultiplier = (item: GroceryItem, ingredient: Ingredient) => {
-    const conversion = recipeMultiplier(item.size, ingredient.amount)
+  const calculateIngredientMultiplier = (item: GroceryItem, ingredient: IngredientParseResult) => {
+    const amount = formatIngredientAmount(ingredient)
+    const conversion = recipeMultiplier(item.size, amount)
 
     if (!conversion || conversion.error) {
       return null
@@ -63,8 +65,8 @@ export function ShoppingList({ items, onClear }: ShoppingListProps) {
                     <p className="text-sm font-medium leading-none truncate">{item.name}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {item.size}
-                      {ingredient.amount && (
-                        <span className="ml-1">Need {ingredient.amount}</span>
+                      {formatIngredientAmount(ingredient) && (
+                        <span className="ml-1">Need {formatIngredientAmount(ingredient)}</span>
                       )}
                     </p>
                     <p className="text-xs text-muted-foreground">{item.planogram.aisle}</p>

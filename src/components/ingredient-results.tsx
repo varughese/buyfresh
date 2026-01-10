@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardAction } from "@/componen
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Check, Search, ChevronLeft, ChevronRight } from "lucide-react"
-import type { Ingredient } from "@/app/ingredient-parser"
+import type { IngredientParseResult } from "@/app/ingredient-parser"
+import { formatIngredientAmount } from "@/app/ingredient-parser"
 import type { GroceryItem } from "@/lib/wegmans/types"
 import { SearchModal } from "@/components/search-modal"
 
 interface IngredientWithMatches {
-    ingredient: Ingredient
+    ingredient: IngredientParseResult
     matches: GroceryItem[]
     selected?: GroceryItem
     skipped?: boolean
@@ -19,10 +20,10 @@ interface IngredientWithMatches {
 
 interface IngredientResultsProps {
     ingredients: IngredientWithMatches[]
-    onSelectProduct: (ingredient: Ingredient, product: GroceryItem) => void
-    onSkip: (ingredient: Ingredient) => void
-    onUnskip: (ingredient: Ingredient) => void
-    onUpdateSearch: (ingredient: Ingredient, query: string, results: GroceryItem[], selected?: GroceryItem) => void
+    onSelectProduct: (ingredient: IngredientParseResult, product: GroceryItem) => void
+    onSkip: (ingredient: IngredientParseResult) => void
+    onUnskip: (ingredient: IngredientParseResult) => void
+    onUpdateSearch: (ingredient: IngredientParseResult, query: string, results: GroceryItem[], selected?: GroceryItem) => void
 }
 
 const ITEMS_PER_PAGE = 4
@@ -65,16 +66,20 @@ export function IngredientResults({ ingredients, onSelectProduct, onSkip, onUnsk
         <div className="space-y-4">
             {ingredients.map((item, index) => (
                 <Card
-                    key={`${item.ingredient.ingredient}-${item.ingredient.amount}`}
+                    key={`${item.ingredient.ingredient}-${formatIngredientAmount(item.ingredient) || ""}`}
                     className={item.selected ? "border-primary bg-primary/5" : item.skipped ? "opacity-50 grayscale" : ""}
                 >
                     <CardHeader>
                         <CardTitle className="text-lg">
                             <span>
-                                {item.ingredient.ingredient}
-                                {item.ingredient.amount && (
+                                {item.ingredient.ingredient} {item.ingredient.extra && (
                                     <span className="ml-2 text-sm font-normal text-muted-foreground">
-                                        {item.ingredient.amount}
+                                        {item.ingredient.extra}
+                                    </span>
+                                )}
+                                {formatIngredientAmount(item.ingredient) && (
+                                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                                        {formatIngredientAmount(item.ingredient)}
                                     </span>
                                 )}
                             </span>

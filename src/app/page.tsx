@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Ingredient, parseRecipe } from "./ingredient-parser";
+import { IngredientParseResult, parseRecipe } from "./ingredient-parser";
 import { searchWegmans, type GroceryItem } from "@/lib/wegmans";
 import { scrapeRecipeUrl, type Recipe } from "@/lib/recipe-url-scraper";
 import { ManualInput } from "@/components/manual-input";
@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Textarea } from "@/components/ui/textarea";
 
 interface IngredientWithMatches {
-    ingredient: Ingredient;
+    ingredient: IngredientParseResult;
     matches: GroceryItem[];
     selected?: GroceryItem;
     skipped?: boolean;
@@ -71,7 +71,7 @@ export default function Home() {
     const [selectedItems, setSelectedItems] = useState<
         {
             item: GroceryItem;
-            ingredient: Ingredient;
+            ingredient: IngredientParseResult;
         }[]
     >([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -168,9 +168,8 @@ export default function Home() {
             // Store the recipe
             setRecipe(recipeData.recipe);
 
-            // Join ingredients with newlines for parsing
-            const ingredientsText = recipeData.recipe.ingredients.join("\n");
-            const parsedIngredients = parseRecipe(ingredientsText);
+            // Parse ingredients directly from array
+            const parsedIngredients = parseRecipe(recipeData.recipe.ingredients);
 
             setProgressMessage("Searching store...");
             setProgressValue(80);
@@ -212,7 +211,7 @@ export default function Home() {
         }
     }, []);
 
-    const handleSelectProduct = (ingredient: Ingredient, product: GroceryItem) => {
+    const handleSelectProduct = (ingredient: IngredientParseResult, product: GroceryItem) => {
         // Check if item is already selected
         const isAlreadySelected = selectedItems.some(
             (item) => item.item.href === product.href
@@ -245,7 +244,7 @@ export default function Home() {
         }
     };
 
-    const handleSkip = (ingredient: Ingredient) => {
+    const handleSkip = (ingredient: IngredientParseResult) => {
         setIngredients((prev) =>
             prev.map((ing) =>
                 ing.ingredient.ingredient === ingredient.ingredient
@@ -261,7 +260,7 @@ export default function Home() {
         );
     };
 
-    const handleUnskip = (ingredient: Ingredient) => {
+    const handleUnskip = (ingredient: IngredientParseResult) => {
         setIngredients((prev) =>
             prev.map((ing) =>
                 ing.ingredient.ingredient === ingredient.ingredient
@@ -271,7 +270,7 @@ export default function Home() {
         );
     };
 
-    const handleUpdateSearch = (ingredient: Ingredient, query: string, results: GroceryItem[], selected?: GroceryItem) => {
+    const handleUpdateSearch = (ingredient: IngredientParseResult, query: string, results: GroceryItem[], selected?: GroceryItem) => {
         setIngredients((prev) =>
             prev.map((ing) => {
                 if (ing.ingredient.ingredient === ingredient.ingredient) {

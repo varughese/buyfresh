@@ -1,51 +1,68 @@
-const MEASUREMENTS = {
-    volume: [
-        "teaspoon",
-        "tsp",
-        "tablespoon",
-        "tbsp",
-        "cup",
-        "c",
-        "fluid ounce",
-        "fl oz",
-        "pint",
-        "pt",
-        "quart",
-        "qt",
-        "gallon",
-        "gal",
-        "milliliter",
-        "ml",
-        "liter",
-        "l",
-    ],
-    weight: ["ounce", "oz", "pound", "lb", "gram", "g", "kilogram", "kg"],
-    units: ["unit", "head", "clove", "stalk", "bunch", "slice", "piece"],
-};
+import { parseIngredient } from "@/lib/vendor/sharp-recipe-parser/ingredientParser.js";
+import type { IngredientParseResult } from "@/lib/vendor/sharp-recipe-parser/types";
 
-// Combine all measurements for regex
-const ALL_MEASUREMENTS = [
-    ...MEASUREMENTS.volume,
-    ...MEASUREMENTS.weight,
-    ...MEASUREMENTS.units,
-].sort((a, b) => b.length - a.length);
+// Re-export the type for convenience
+export type { IngredientParseResult } from "@/lib/vendor/sharp-recipe-parser/types";
 
-// Create regex patterns
-const NUMBER_PATTERN = String.raw`(?:(?:\d+\s*\/\s*\d+)|(?:\d*\.?\d+)|(?:¼|½|¾))`;
-const MEASUREMENT_PATTERN = String.raw`(?:${ALL_MEASUREMENTS.join("|")})s?`;
-const AMOUNT_PATTERN = String.raw`(${NUMBER_PATTERN})\s*(${MEASUREMENT_PATTERN})`;
+/**
+ * Creates a minimal IngredientParseResult when parsing fails
+ */
+function createMinimalIngredient(ingredientName: string): IngredientParseResult {
+    return {
+        quantity: 0,
+        quantityText: "",
+        minQuantity: 0,
+        maxQuantity: 0,
+        unit: "",
+        unitText: "",
+        ingredient: ingredientName,
+        extra: "",
+        alternativeQuantities: [],
+    };
+}
 
-export type Ingredient = { ingredient: string; amount: string | null };
-export function parseRecipe(input: string): Ingredient[] {
+/**
+ * Parses a recipe ingredient list into structured ingredients.
+ * Handles two formats:
+ * 1. "Ingredient(amount, extra)" - e.g., "Chicken thigh(2 lb, cut into pieces)"
+ * 2. "Ingredient\namount" - alternate format with newlines
+ * 
+ * @param input - Multiline string of ingredients or array of ingredient strings
+ * @returns Array of parsed ingredients
+ */
+export function parseRecipe(input: string | string[]): IngredientParseResult[] {
+    // If input is an array, map over it directly
+    if (Array.isArray(input)) {
+        return input
+            .filter((line) => line.trim())
+            .map((line) => {
+                const parsed = parseIngredient(line.trim(), "en", {
+                    includeExtra: true,
+                    includeAlternativeUnits: false,
+                    fallbackLanguage: "",
+                });
+
+                if (!parsed || !parsed.ingredient) {
+                    return createMinimalIngredient(line.trim());
+                }
+
+                return parsed;
+            });
+    }
+
     // Split input into lines and remove empty lines
     const lines = input
         .trim()
         .split("\n")
         .filter((line) => line.trim());
 
-    // Handle different input formats
+    if (lines.length === 0) {
+        return [];
+    }
+
+    // Handle different input formats. these do not work with the new parser.
     if (lines[0].includes("(")) {
-        // Format 1: "Ingredient(amount)"
+        // Format 1: "Ingredient(amount, extra)"
         return parseFormatOne(lines);
     } else {
         // Format 2: "Ingredient\namount"
@@ -53,71 +70,162 @@ export function parseRecipe(input: string): Ingredient[] {
     }
 }
 
-function parseFormatOne(lines: string[]) {
+/**
+ * Parses format: "Ingredient(amount, extra)"
+ */
+function parseFormatOne(lines: string[]): IngredientParseResult[] {
     return lines.map((line) => {
-        // Split ingredient and amount/details
-        const match = line.match(/(.*?)\((.*?)\)/);
-        if (!match) return { ingredient: line.trim(), amount: null };
+        const trimmedLine = line.trim();
 
-        const [, ingredient, details] = match;
-        // Extract amount from details, keeping the full unit
-        const amountMatch = details.match(
-            new RegExp(`^${AMOUNT_PATTERN}`, "i")
-        );
+        // Extract ingredient name and parenthetical content
+        // Use a more robust regex that finds the last opening parenthesis
+        // to handle cases like "Ingredient, with comma(amount, extra)"
+        const lastOpenParen = trimmedLine.lastIndexOf('(');
+        const lastCloseParen = trimmedLine.lastIndexOf(')');
 
-        if (!amountMatch)
-            return { ingredient: ingredient.trim(), amount: null };
+        if (lastOpenParen === -1 || lastCloseParen === -1 || lastCloseParen <= lastOpenParen) {
+            // No valid parentheses - try parsing the whole line
+            const parsed = parseIngredient(trimmedLine, "en", {
+                includeExtra: true,
+                includeAlternativeUnits: false,
+                fallbackLanguage: "",
+            });
 
-        const [, number, unit] = amountMatch;
-        if (!number && !unit)
-            return { ingredient: ingredient.trim(), amount: null };
+            if (!parsed || !parsed.ingredient) {
+                return createMinimalIngredient(trimmedLine);
+            }
 
-        // Combine number and unit, preserving the exact unit text
-        const amount = `${normalizeAmount(number)} ${unit}`.trim();
+            return parsed;
+        }
 
+        const ingredientName = trimmedLine.substring(0, lastOpenParen).trim();
+        const parentheticalContent = trimmedLine.substring(lastOpenParen + 1, lastCloseParen).trim();
+
+        // Split parenthetical content by first comma to separate amount from extra
+        // This handles formats like "2 lb, cut into pieces" or just "2 lb"
+        const commaIndex = parentheticalContent.indexOf(',');
+        const amountPart = commaIndex >= 0
+            ? parentheticalContent.substring(0, commaIndex).trim()
+            : parentheticalContent.trim();
+        const extraPart = commaIndex >= 0
+            ? parentheticalContent.substring(commaIndex + 1).trim()
+            : "";
+
+        // Try parsing the amount part
+        let parsed = parseIngredient(amountPart, "en", {
+            includeExtra: false,
+            includeAlternativeUnits: false,
+            fallbackLanguage: "",
+        });
+
+        if (!parsed || (!parsed.quantity && !parsed.unit)) {
+            // If parsing the amount fails, try parsing the whole parenthetical content
+            parsed = parseIngredient(parentheticalContent, "en", {
+                includeExtra: true,
+                includeAlternativeUnits: false,
+                fallbackLanguage: "",
+            });
+
+            if (!parsed || (!parsed.quantity && !parsed.unit && !parsed.ingredient)) {
+                // If that also fails, try parsing the whole line
+                const fullParsed = parseIngredient(trimmedLine, "en", {
+                    includeExtra: true,
+                    includeAlternativeUnits: false,
+                    fallbackLanguage: "",
+                });
+
+                if (!fullParsed || !fullParsed.ingredient) {
+                    return createMinimalIngredient(ingredientName);
+                }
+
+                // Use the ingredient name from before the parentheses
+                return {
+                    ...fullParsed,
+                    ingredient: ingredientName,
+                };
+            }
+        }
+
+        // Combine the parsed amount with the extra information
+        // Use the ingredient name from before the parentheses
         return {
-            ingredient: ingredient.trim(),
-            amount,
+            ...parsed,
+            ingredient: ingredientName,
+            extra: extraPart || parsed.extra || "",
         };
     });
 }
 
-function parseFormatTwo(lines: string[]) {
-    const ingredients = [];
+/**
+ * Parses format: "Ingredient\namount"
+ */
+function parseFormatTwo(lines: string[]): IngredientParseResult[] {
+    const ingredients: IngredientParseResult[] = [];
 
     for (let i = 0; i < lines.length; i += 2) {
-        const ingredient = lines[i].trim();
-        const amount = i + 1 < lines.length ? lines[i + 1].trim() : null;
+        const ingredientLine = lines[i].trim();
+        const amountLine = i + 1 < lines.length ? lines[i + 1].trim() : null;
 
-        // Skip ingredients without proper amount
-        if (amount === "null" || amount === "undefined") {
-            ingredients.push({ ingredient, amount: null });
+        // Skip invalid amounts
+        if (amountLine === "null" || amountLine === "undefined") {
+            ingredients.push(createMinimalIngredient(ingredientLine));
             continue;
         }
 
-        // Validate amount format
-        const amountMatch = amount
-            ? amount.match(new RegExp(`^${AMOUNT_PATTERN}$`, "i"))
-            : null;
+        // Try parsing the amount line
+        if (amountLine) {
+            const parsed = parseIngredient(amountLine, "en", {
+                includeExtra: false,
+                includeAlternativeUnits: false,
+                fallbackLanguage: "",
+            });
 
-        ingredients.push({
-            ingredient,
-            amount: amountMatch ? normalizeAmount(amount) : null,
+            if (parsed && (parsed.quantity || parsed.unit)) {
+                // Use the ingredient name from the ingredient line
+                ingredients.push({
+                    ...parsed,
+                    ingredient: ingredientLine,
+                });
+                continue;
+            }
+        }
+
+        // If no amount line or parsing failed, try parsing the ingredient line itself
+        const parsed = parseIngredient(ingredientLine, "en", {
+            includeExtra: true,
+            includeAlternativeUnits: false,
+            fallbackLanguage: "",
         });
+
+        if (parsed && parsed.ingredient) {
+            ingredients.push(parsed);
+        } else {
+            ingredients.push(createMinimalIngredient(ingredientLine));
+        }
     }
 
     return ingredients;
 }
 
-// Helper function to convert fractions and special characters to decimal
-function normalizeAmount(amount: string | null) {
-    if (!amount) return null;
+/**
+ * Formats an IngredientParseResult into a displayable amount string
+ */
+export function formatIngredientAmount(ingredient: IngredientParseResult): string | null {
+    if (!ingredient.quantity && !ingredient.unit) {
+        return null;
+    }
 
-    // Convert special fraction characters
-    amount = amount
-        .replace("¼", "0.25")
-        .replace("½", "0.5")
-        .replace("¾", "0.75");
+    const quantity = ingredient.quantityText || ingredient.quantity?.toString() || "";
+    const unit = ingredient.unitText || ingredient.unit || "";
 
-    return amount;
+    if (!quantity && !unit) {
+        return null;
+    }
+
+    // If quantity is 0 or empty and we have a unit, just return the unit
+    if ((!quantity || quantity === "0") && unit) {
+        return unit;
+    }
+
+    return `${quantity}${unit ? ` ${unit}` : ""}`.trim() || null;
 }
