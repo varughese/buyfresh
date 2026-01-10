@@ -66,7 +66,7 @@ export function IngredientResults({ ingredients, onSelectProduct, onSkip, onUnsk
         <div className="space-y-4">
             {ingredients.map((item, index) => (
                 <Card
-                    key={`${item.ingredient.ingredient}-${formatIngredientAmount(item.ingredient) || ""}`}
+                    key={`${item.ingredient.ingredient}-${formatIngredientAmount(item.ingredient) || ""}-${index}`}
                     className={item.selected ? "border-primary bg-primary/5" : item.skipped ? "opacity-50 grayscale" : ""}
                 >
                     <CardHeader>

@@ -19,12 +19,47 @@ interface ShoppingListProps {
   onClear: () => void
 }
 
+const formatPlanogram = (planogram: GroceryItem["planogram"]): string => {
+  const parts: string[] = []
+
+  if (planogram.aisle && planogram.aisle !== "Unknown") {
+    parts.push(`Aisle ${planogram.aisle}`)
+  }
+  if (planogram.aisleSide && planogram.aisleSide !== "Unknown") {
+    parts.push(planogram.aisleSide)
+  }
+  if (planogram.section && planogram.section !== "Unknown") {
+    parts.push(`Section ${planogram.section}`)
+  }
+  if (planogram.shelf && planogram.shelf !== "Unknown") {
+    parts.push(`Shelf ${planogram.shelf}`)
+  }
+
+  return parts.length > 0 ? parts.join(" • ") : "Location unknown"
+}
+
 export function ShoppingList({ items, onClear }: ShoppingListProps) {
   const total = items.reduce((sum, item) => sum + item.item.price, 0)
 
-  const sortedItems = [...items].sort((a, b) =>
-    a.item.planogram.aisle.localeCompare(b.item.planogram.aisle)
-  )
+  const sortedItems = [...items].sort((a, b) => {
+    const planogramA = a.item.planogram
+    const planogramB = b.item.planogram
+
+    // Sort by aisle first
+    const aisleCompare = planogramA.aisle.localeCompare(planogramB.aisle)
+    if (aisleCompare !== 0) return aisleCompare
+
+    // Then by aisle side
+    const sideCompare = planogramA.aisleSide.localeCompare(planogramB.aisleSide)
+    if (sideCompare !== 0) return sideCompare
+
+    // Then by section
+    const sectionCompare = planogramA.section.localeCompare(planogramB.section)
+    if (sectionCompare !== 0) return sectionCompare
+
+    // Finally by shelf
+    return planogramA.shelf.localeCompare(planogramB.shelf)
+  })
 
   const calculateIngredientMultiplier = (item: GroceryItem, ingredient: IngredientParseResult) => {
     const amount = formatIngredientAmount(ingredient)
@@ -69,7 +104,7 @@ export function ShoppingList({ items, onClear }: ShoppingListProps) {
                         <span className="ml-1">Need {formatIngredientAmount(ingredient)}</span>
                       )}
                     </p>
-                    <p className="text-xs text-muted-foreground">{item.planogram.aisle}</p>
+                    <p className="text-xs text-muted-foreground">{formatPlanogram(item.planogram)}</p>
                     <p className="text-sm font-semibold mt-1">${item.price.toFixed(2)}</p>
                     {timesMore && (
                       <p className="text-xs text-muted-foreground">{timesMore}</p>
