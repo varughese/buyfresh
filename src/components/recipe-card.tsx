@@ -110,7 +110,7 @@ export function RecipeCard({ recipe }: RecipeCardProps) {
             {isExpanded && (
                 <CardContent className="space-y-4">
                     {recipe.image && recipe.image.length > 0 && (
-                        <div className="rounded-lg overflow-hidden">
+                        <div className="rounded-lg overflow-hidden w-48 h-48">
                             <img
                                 src={recipe.image[0]}
                                 alt={recipe.name}

@@ -17,4 +17,5 @@ export interface GroceryItem {
     name: string;
     price: number;
     size: string;
+    objectID?: string; // Algolia objectID for direct lookups
 }
