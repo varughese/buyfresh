@@ -212,15 +212,15 @@ export default function Home() {
     }, []);
 
     const handleSelectProduct = (ingredient: IngredientParseResult, product: GroceryItem) => {
-        // Check if item is already selected
+        // Check if this exact product is already selected for this ingredient
         const isAlreadySelected = selectedItems.some(
-            (item) => item.item.href === product.href
+            (item) => item.item.href === product.href && item.ingredient.ingredient === ingredient.ingredient
         );
 
         if (isAlreadySelected) {
-            // Remove from selected items
+            // Remove from selected items (toggle off)
             setSelectedItems((prev) =>
-                prev.filter((item) => item.item.href !== product.href)
+                prev.filter((item) => !(item.item.href === product.href && item.ingredient.ingredient === ingredient.ingredient))
             );
             // Update ingredient state
             setIngredients((prev) =>
@@ -231,8 +231,15 @@ export default function Home() {
                 )
             );
         } else {
-            // Add to selected items
-            setSelectedItems((prev) => [...prev, { item: product, ingredient }]);
+            // Remove any existing product for this ingredient first, then add the new one
+            setSelectedItems((prev) => {
+                // Filter out any existing products for this ingredient
+                const filtered = prev.filter(
+                    (item) => item.ingredient.ingredient !== ingredient.ingredient
+                );
+                // Add the new product
+                return [...filtered, { item: product, ingredient }];
+            });
             // Update ingredient state
             setIngredients((prev) =>
                 prev.map((ing) =>

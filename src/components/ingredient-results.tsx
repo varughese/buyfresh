@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, Search, ChevronLeft, ChevronRight, Plus } from "lucide-react"
+import { Check, Search, ChevronLeft, ChevronRight } from "lucide-react"
 import type { IngredientParseResult } from "@/app/ingredient-parser"
 import { formatIngredientAmount } from "@/app/ingredient-parser"
 import type { GroceryItem } from "@/lib/wegmans/types"
@@ -134,16 +134,12 @@ export function IngredientResults({ ingredients, onSelectProduct, onSkip, onUnsk
                                                         return (
                                                             <div
                                                                 key={product.href}
-                                                                className="relative flex flex-col items-center rounded-lg border bg-card overflow-hidden cursor-pointer hover:shadow-md transition-shadow flex-shrink-0 w-36"
-                                                                onClick={(e) => {
-                                                                    // Don't trigger card click if clicking the button
-                                                                    if ((e.target as HTMLElement).closest('button')) {
-                                                                        return
-                                                                    }
+                                                                className={`relative flex flex-col items-center rounded-lg border bg-card overflow-hidden cursor-pointer hover:shadow-md transition-shadow flex-shrink-0 w-36 ${isSelected ? "border-green-500 border-2" : ""}`}
+                                                                onClick={() => {
                                                                     onSelectProduct(item.ingredient, product)
                                                                 }}
                                                             >
-                                                                <div className="relative w-full aspect-square bg-muted max-w-24 overflow-hidden flex items-center justify-center">
+                                                                <div className="relative w-full mt-3 aspect-square bg-muted max-w-24 overflow-hidden flex items-center justify-center">
                                                                     {product.images[0] && (
                                                                         <div>
                                                                             <img
@@ -153,24 +149,6 @@ export function IngredientResults({ ingredients, onSelectProduct, onSkip, onUnsk
                                                                             />
                                                                         </div>
                                                                     )}
-                                                                    <button
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation()
-                                                                            onSelectProduct(item.ingredient, product)
-                                                                        }}
-                                                                        className={`absolute top-2 right-0 h-8 w-8 rounded-full flex items-center justify-center shadow-md transition-colors ${isSelected
-                                                                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                                                                            : "bg-background hover:bg-muted"
-                                                                            }`}
-                                                                        aria-label={isSelected ? "Remove product" : "Select product"}
-                                                                    >
-                                                                        {isSelected ? (
-                                                                            <Check className="h-4 w-4" />
-                                                                        ) : (
-
-                                                                            <Plus className="h-4 w-4" />
-                                                                        )}
-                                                                    </button>
                                                                 </div>
                                                                 <div className="p-3 space-y-1">
                                                                     <p className="text-lg font-semibold">
