@@ -97,3 +97,5 @@ export function ShoppingList({ items, onClear }: ShoppingListProps) {
   )
 }
 
+s
+r
